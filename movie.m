@@ -89,20 +89,27 @@ end
 
 %% real data changed 2d
 n=0;
-  for mu=[1000 1500 2000 2500 5000]
-      for m=[1000 2000 2500 3000 4000]
+    for mu=[1 2 5 10 15]
+        for m=[1 2 5 10 15]
+ %m=2
+           %mu=5
          n=n+1;
+         length_i=0.75;
     close all
-    clearvars -except K_n alpha n Volume mu m
+    %clearvars -except K_n alpha n Volume mu m
     
-
-K=[1 1 1]*500;
+% L_0_b(1)=1; %natural length of basal side epidermis glass
+% L_0_b(2)=length_i; %natural length of basal side epidermis interface
+% L_0_b(3)=1; %natural length of basal side neuronal interface
+% L_0_b(4)=1; %natural length of basal side neuronal glass
+L_0_b=[1 length_i 1 1];
+K=[1 1 1]*1;
 gamma=0.01;
-g=2500;
+g=5;
 %m=2000;
-alpha=100;
-name=sprintf('miosin=%d_bulk=%d_springs=%d_jump=%d.avi',m,g,K(1),mu);
-[points,cells] = PlasticGrowthH2D_line_jump(K,gamma,g,m,alpha,mu);
+alpha=1;
+name=sprintf('m%d_b%d_k%d_mu%d_Lg%d_Li3_4',m,g,K(1),mu,L_0_b(1));
+[points,cells,struct_g,cells_on_i,interface_length] = PlasticGrowthH2D_line_jump(K,gamma,g,m,alpha,mu,L_0_b);
 
 %
 % paramets when to begin plot, how many points in time to plot and what
@@ -176,10 +183,10 @@ drawnow
 % clf(gcf)
 end
 
-writerObj=VideoWriter(name);
+writerObj=VideoWriter(strcat(name,'.avi'));
 writerObj.FrameRate=7;
 
-Volume(n)=max(max(points(401).dArea));
+%Volume(n)=max(max(points(401).dArea));
 
 open(writerObj);
 for i=1:length(F)
@@ -189,8 +196,12 @@ close(writerObj);
 
 figure(200)
 plot(1:length(H),H,'k.')
-     end
- end
+Mega_matrix.(name).Cells_on_interface=cells_on_i;
+Mega_matrix.(name).Variation_cell_area=points(401).dArea;
+Mega_matrix.(name).Energy_over_time=H;
+Mega_matrix.(name).Length_of_interface=interface_length;
+      end
+  end
 
 %figure(400)
 %plot(1:length(rmsA),rmsA,'k.')
@@ -198,14 +209,21 @@ plot(1:length(H),H,'k.')
 figure(500)
 n=0;
 y=1.0;
- for K_n=[10 100 500 750 1000]
-     for alpha=[10 100 500 750 1000]
-         g=2500;
-        m=1000;
+     for mu=[1 2 5 10 15]
+        for m=[1 2 5 10 15]
+ length_i=1;        
+         % L_0_b(1)=1; %natural length of basal side epidermis glass
+% L_0_b(2)=length_i; %natural length of basal side epidermis interface
+% L_0_b(3)=1; %natural length of basal side neuronal interface
+% L_0_b(4)=1; %natural length of basal side neuronal glass
+L_0_b=[1 length_i 1 1];
+K=[1 1 1]*1;
+gamma=0.01;
+g=5;
         
        
-        
-        name=sprintf('miosin=%d_bulk=%d_springs=%d_interface=%d.avi',m,g,K_n,alpha);
+
+        name=sprintf('m%d_b%d_k%d_mu%d_Lg%d_Li3_4.avi',m,g,K(1),mu,L_0_b(1));
         n=n+1;
         h=subplot(5,5,n);
        %set(h,'XTick',[],'YTick',[],'TickLength',[0,0], 'Position', [x y .1 .15]);
@@ -214,11 +232,28 @@ y=1.0;
         video = obj.read();
         
         imshow(video(:,:,:,200))
-        title(sprintf('K=%d interface=%d',K_n,alpha))
+        title(sprintf('Miosin=%d jump=%d',m,mu))
         hold on
-    end
-end
+     end
+     end
+         
 saveas(figure(500),'table.tif')
+%% phase space
+color=[0 0 0; 0 1 0; 0 1 0; 1 0 0; 1 0 0; 0 0 0;0 1 0;0 1 0;1 0 0;1 0 0; 0 0 0; 0 1 0; 0 1 0; 0 1 0; 1 0 0; 0 0 0; 0 1 0; 1 0 0; 1 0 0; 1 0 0; 0 0 0; 0 1 0; 1 0 0; 1 0 0; 1 0 0]
+color = [ color; 0 1 0; 0 1 0; 0 1 0; 1 0 0; 1 0 0; 0 1 0; 0 1 0; 0 1 0; 1 0 0; 1 0 0; 0 1 0; 0 1 0; 0 1 0; 0 1 0; 0 1 0; 0 1 0; 0 1 0; 0 1 0; 0 1 0; 1 0 0; 1 0 0; 1 0 0; 1 0 0; 1 0 0; 1 0 0]
+color=[ color; 0 1 0; 0 1 0; 0 1 0; 1 0 0; 1 0 0; 0 1 0; 0 1 0; 0 1 0; 1 0 0; 1 0 0;0 1 0; 0 1 0; 0 1 0; 0 1 0; 1 0 0; 0 1 0; 0 1 0; 1 0 0; 1 0 0; 1 0 0; 0 1 0; 0 1 0; 1 0 0; 1 0 0; 1 0 0]
+n=0
+for ll_i=[1 0.5 0.75]
+for mu=[1 2 5 10 15]
+        for m=[1 2 5 10 15]
+       n=n+1     
+figure(22)
+plot3(m,mu,ll_i,'.','MarkerFaceColor',color(n,:),'MarkerEdgeColor',color(n,:))
+hold on
+end
+end
+end
+
 %% real data changed 
 [points,cells] = PlasticGrowthH_newHamiltonian;
 %

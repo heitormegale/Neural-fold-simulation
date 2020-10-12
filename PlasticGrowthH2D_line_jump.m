@@ -1,4 +1,4 @@
-function [points,cells] = PlasticGrowthH2D_line_jump(K,gamma,g,m,alpha,mu)
+function [points,cells,struct_g,cells_on_i,interface_length] = PlasticGrowthH2D_line_jump(K,gamma,g,m,alpha,mu,L_0_b)
 
     
     
@@ -12,7 +12,7 @@ function [points,cells] = PlasticGrowthH2D_line_jump(K,gamma,g,m,alpha,mu)
     PlasticGrowth = 0; % Growth in response to stress = 1; Constant Growth = 0;
     
     % parameters:
-            
+
        
         NTimes = 400000; % Number of simulation runs;
         Plots  = 1000; % When to plot distribution
@@ -37,12 +37,17 @@ function [points,cells] = PlasticGrowthH2D_line_jump(K,gamma,g,m,alpha,mu)
         m=m; %miosin force
         radius=10;
         x_0=30.5;
-        x_offset=0;
+        x_offset_l=0;
+        x_offset_r=0;
         alpha=alpha;
         mu=mu; %interface constant
+        ll_b_e_g=L_0_b(1); %natural length of basal side epidermis glass
+        ll_b_e_i=L_0_b(2); %natural length of basal side epidermis interface
+        ll_b_n_i=L_0_b(3); %natural length of basal side neuronal interface
+        ll_b_n_g=L_0_b(4); %natural length of basal side neuronal glass
 
     % Chain initiation, now we also define the line in the N/E boundary
-    [r_a,r_b,rr,ll_a,ll_b,ll_s,ID,A_0,step,ID_initial,ID_edge] = ChainModelInitial(Ncells,sigma,lmax,m); % from this we get cell edges, attachement points and cell length
+    [r_a,r_b,rr,ll_a,ll_b,ll_s,ID,A_0,step,ID_initial,ID_edge] = ChainModelInitial(Ncells,sigma,lmax,m,ll_b_e_g,ll_b_n_g); % from this we get cell edges, attachement points and cell length
     r_a(1,11)=x_0-sqrt(radius^2-1);
     r_a(1,31)=sqrt(radius^2-1)+x_0;
     k=[k_a k_b k_s];
@@ -82,50 +87,8 @@ function [points,cells] = PlasticGrowthH2D_line_jump(K,gamma,g,m,alpha,mu)
     for i= 1:NTimes
        
         n=0;
+        [delta_L_l, delta_L_r, ID_min_l_e, ID_min_l_n, ID_min_r_e,ID_min_r_n]=interface_length_func(L,ID_initial);
         
-        maxval=max(L(ID_initial==1)); %left boundary lengths
-        ID_max_l=intersect(find(L==maxval),find(ID_initial==1));%left boundary max
-        
-        maxval=max(L(ID_initial==2)); %right boundary lengths
-        ID_max_r=intersect(find(L==maxval),find(ID_initial==2));%right boundary max
-        
-       
-        minval=min(L(intersect(1:ID_max_l-1,find(ID_initial==1))));
-        if isempty(minval)
-            ID_min_l_e=length(L);
-        else
-        ID_min_l_e=intersect(find(L==minval),find(ID_initial==1));
-        end
-        
-        
-        minval=min(L(intersect(ID_max_l+1:ID_max_r-1,find(ID_initial==1))));
-        if isempty(minval)
-            ID_min_l_n=length(L);
-        else
-        ID_min_l_n=intersect(find(L==minval),find(ID_initial==1));
-        end
-        
-        
-        minval=min(L(intersect(ID_max_r+1:length(L),find(ID_initial==2))));
-        if isempty(minval)
-            ID_min_r_e=length(L);
-            
-        else
-        ID_min_r_e=intersect(find(L==minval),find(ID_initial==2));
-        
-        end
-        
-        
-        minval=min(L(intersect(ID_max_l+1:ID_max_r-1,find(ID_initial==2))));
-        if isempty(minval)
-            ID_min_r_n=length(L);
-        else
-        ID_min_r_n=intersect(find(L==minval),find(ID_initial==2));
-        end
-        
-        
-        delta_L_l=-L(ID_min_l_e(1))+L(ID_min_l_n(1));
-        delta_L_r=-L(ID_min_r_e(1))+L(ID_min_r_n(1));
         
         for jj=1:Ncells
             
@@ -136,8 +99,8 @@ function [points,cells] = PlasticGrowthH2D_line_jump(K,gamma,g,m,alpha,mu)
             Area(jj)=polyarea(x1,y1);
             end
             
-            dH_a_x(1,n)=dH_a_func(ll_a,ll_s,r_a,r_b,kappa,jj,1,k,g,delta_x,step,A_0,Area);
-            dH_a_z(1,n)=dH_a_func(ll_a,ll_s,r_a,r_b,kappa,jj,2,k,g,delta_x,step,A_0,Area);
+            [dH_a_x(1,n), side, front, back, area1, area2, miosin]=dH_a_func(ll_a,ll_s,r_a,r_b,kappa,jj,1,k,g,delta_x,step,A_0,Area);
+            [dH_a_z(1,n)]=dH_a_func(ll_a,ll_s,r_a,r_b,kappa,jj,2,k,g,delta_x,step,A_0,Area);
             
             dH_b_x(1,n)=dH_b_func(ll_b,ll_s,r_a,r_b,kappa,jj,rr,1,k,gamma,lambda,g,delta_x,A_0,Area);
             dH_b_z(1,n)=0;%dH_b_func(ll_b,ll_s,r_a,r_b,kappa,jj,rr,2,k,gamma,lambda,g,delta_x,A_0,Area);  
@@ -149,34 +112,34 @@ function [points,cells] = PlasticGrowthH2D_line_jump(K,gamma,g,m,alpha,mu)
             dH_r(1,n)=0;
             dH_x_0(1,n)=0;
              if ID_initial(jj)==1
-                dH_b_z(1,n)=dH_b_func(ll_b,ll_s,r_a,r_b,kappa,jj,rr,2,k,gamma,lambda,g,delta_x,A_0,Area)+dH_extra(r_b(1,jj),r_b(2,jj),radius,x_0,delta_L_l,2,jj,ID_min_l_e,ID_min_l_n,alpha);
-                dH_b_x(1,n)=dH_b_x(1,n)+dH_extra(r_b(1,jj),r_b(2,jj),radius,x_0,delta_L_l,1,jj,ID_min_l_e,ID_min_l_n,alpha);
+                [dH_b_z(1,n),side_z(1,n), front_z(1,n), back_z(1,n), area1_z(1,n), area2_z(1,n)]=dH_b_func(ll_b,ll_s,r_a,r_b,kappa,jj,rr,2,k,gamma,lambda,g,delta_x,A_0,Area);%+dH_extra(r_b(1,jj),r_b(2,jj),radius,x_0,delta_L_l,2,jj,ID_min_l_e,ID_min_l_n,alpha);
+                dH_b_x(1,n)=dH_b_x(1,n);%+dH_extra(r_b(1,jj),r_b(2,jj),radius,x_0,delta_L_l,1,jj,ID_min_l_e,ID_min_l_n,alpha);
                 
-                dx=-dx_dl(r_b(1,jj),r_b(2,jj),x_0,radius);
+                dx=dx_dl(r_b(1,jj),r_b(2,jj),x_0,radius);
                 dz=dz_dl(r_b(1,jj),r_b(2,jj),x_0,radius);
                 dH_l(1,n)= dH_b_x(1,jj)*dx + dH_b_z(1,jj)*dz;
             
                 dx=-dx_dr(r_b(1,jj),r_b(2,jj),x_0,radius);
-                dz=dz_dr(r_b(1,jj),r_b(2,jj),x_0,radius);
+                dz=-dz_dr(r_b(1,jj),r_b(2,jj),x_0,radius);
                 dH_r(1,n)= dH_b_x(1,jj)*dx + dH_b_z(1,jj)*dz;
                 
                 dx=-1;
                 dz=0;
-                dH_x_0(1,n)= dH_b_x(1,jj)*dx + dH_b_z(1,jj)*dz;
+                dH_x_0_l(1,n)= dH_b_x(1,jj)*dx + dH_b_z(1,jj)*dz;
                 if ID_edge(jj)==1
 %                 dH_a_z(1,n)=dH_a_func(ll_b,ll_s,r_a,r_b,kappa,jj,rr,2,k,gamma,lambda,g,delta_x,A_0,Area);
 %                 dH_a_x(1,n)=dH_a_x(1,n);   
-                    dx=-dx_dl(r_a(1,jj),r_a(2,jj),x_0,radius);
+                    dx=dx_dl(r_a(1,jj),r_a(2,jj),x_0,radius);
                     dz=dz_dl(r_a(1,jj),r_a(2,jj),x_0,radius);
                     dH_l_a(1,n)=dH_a_x(1,jj)*dx + dH_a_z(1,jj)*dz;
                     
                     dx=-dx_dr(r_a(1,jj),r_a(2,jj),x_0,radius);
-                    dz=dz_dr(r_a(1,jj),r_a(2,jj),x_0,radius);
+                    dz=-dz_dr(r_a(1,jj),r_a(2,jj),x_0,radius);
                     dH_r(1,n)=dH_r(1,n)+ dH_a_x(1,jj)*dx + dH_a_z(1,jj)*dz;
                 
                     dx=-1;
                     dz=0;
-                    dH_x_0(1,n)= dH_x_0(1,n)+ dH_a_x(1,jj)*dx + dH_a_z(1,jj)*dz;
+                    dH_x_0_l(1,n)= dH_x_0_l(1,n)+ dH_a_x(1,jj)*dx + dH_a_z(1,jj)*dz;
                 
                 
                 end
@@ -185,8 +148,8 @@ function [points,cells] = PlasticGrowthH2D_line_jump(K,gamma,g,m,alpha,mu)
                 
             end
             if ID_initial(jj)==2
-                dH_b_z(1,n)=dH_b_func(ll_b,ll_s,r_a,r_b,kappa,jj,rr,2,k,gamma,lambda,g,delta_x,A_0,Area)+dH_extra(r_b(1,jj),r_b(2,jj),radius,x_0,delta_L_r,2,jj,ID_min_r_e,ID_min_r_n,alpha); 
-                dH_b_x(1,n)=dH_b_x(1,n)+dH_extra(r_b(1,jj),r_b(2,jj),radius,x_0,delta_L_r,1,jj,ID_min_r_e,ID_min_r_n,alpha);
+                [dH_b_z(1,n),side_z(1,n), front_z(1,n), back_z(1,n), area1_z(1,n), area2_z(1,n)]=dH_b_func(ll_b,ll_s,r_a,r_b,kappa,jj,rr,2,k,gamma,lambda,g,delta_x,A_0,Area);%+dH_extra(r_b(1,jj),r_b(2,jj),radius,x_0,delta_L_r,2,jj,ID_min_r_e,ID_min_r_n,alpha); 
+                dH_b_x(1,n)=dH_b_x(1,n);%+dH_extra(r_b(1,jj),r_b(2,jj),radius,x_0,delta_L_r,1,jj,ID_min_r_e,ID_min_r_n,alpha);
                 
                 dx=dx_dl(r_b(1,jj),r_b(2,jj),x_0,radius);
                 dz=dz_dl(r_b(1,jj),r_b(2,jj),x_0,radius);
@@ -198,7 +161,7 @@ function [points,cells] = PlasticGrowthH2D_line_jump(K,gamma,g,m,alpha,mu)
                 
                 dx=1;
                 dz=0;
-                dH_x_0(1,n)= dH_b_x(1,jj)*dx + dH_b_z(1,jj)*dz;
+                dH_x_0_r(1,n)= dH_b_x(1,jj)*dx + dH_b_z(1,jj)*dz;
                 if ID_edge(jj)==2
 %                 dH_a_z(1,n)=dH_a_func(ll_b,ll_s,r_a,r_b,kappa,jj,rr,2,k,gamma,lambda,g,delta_x,A_0,Area);
 %                 dH_a_x(1,n)=dH_a_x(1,n);   
@@ -212,41 +175,47 @@ function [points,cells] = PlasticGrowthH2D_line_jump(K,gamma,g,m,alpha,mu)
                 
                     dx=1;
                     dz=0;
-                    dH_x_0(1,n)= dH_x_0(1,n)+ dH_a_x(1,jj)*dx + dH_a_z(1,jj)*dz;
+                    dH_x_0_r(1,n)= dH_x_0_r(1,n)+ dH_a_x(1,jj)*dx + dH_a_z(1,jj)*dz;
                 
                 
                 end
             end
         end
         dH_r_total=sum(dH_r);
-        dH_x_0_total=sum(dH_x_0);
+        dH_x_0_l_total=sum(dH_x_0_l);
+        dH_x_0_r_total=sum(dH_x_0_r);
 
 
         N=Ncells;
         cells(i) = Ncells;
-        fullgrad=[dH_a_x(1,find(ID_edge==0)) dH_a_z(1,find(ID_edge==0)) dH_b_x(1,find(ID_initial==0)) dH_b_z(1,find(ID_initial==0)) dH_l dH_r_total dH_x_0_total dH_l_a];
+        fullgrad=[dH_a_x(1,find(ID_edge==0)) dH_a_z(1,find(ID_edge==0)) dH_b_x(1,find(ID_initial==0)) dH_b_z(1,find(ID_initial==0)) dH_l dH_r_total dH_x_0_l_total dH_x_0_r_total dH_l_a];
         gradnorm=norm(fullgrad);
         %rest
         
         radius=radius+dtrr/10*(-dH_r_total)/gradnorm;
-        x_offset=x_offset+dtrr/10*(-dH_x_0_total)/gradnorm;
-        x_0_r=x_0+x_offset;
-        x_0_l=x_0-x_offset;
+        x_offset_r=x_offset_r+dtrr/10*(-dH_x_0_r_total)/gradnorm;
+        x_offset_l=x_offset_l+dtrr/10*(-dH_x_0_l_total)/gradnorm;
+        x_0_r=x_0+x_offset_r;
+        x_0_l=x_0-x_offset_l;
+        struct_g(i).dH_l=dH_l;
      % move edges   
         for jj=2:length(r_a)-1
            
             if  ID_initial(jj)==2
                 
                 if L(jj)==0 && dH_l(jj)/gradnorm<0
+                  
                     
+                    %dH_l(1,jj)=-0.2*gradnorm/dtrr;
                     L_virt=L(jj)+dtrr*(-dH_l(1,jj))/gradnorm;
-                    if L_virt<0
-                        L_virt=0;
-                    end
+%                     if L_virt<0
+%                         L_virt=0;
+%                     end
                     virtual(1)=radius*cos(L_virt/radius) + x_0_r;
                     virtual(2)=radius*sin(L_virt/radius);    
                     do_it=jump(r_a,r_b,ll_s,ll_b,k,ID_edge,jj,virtual,dtrr,mu,dH_l./gradnorm,L);
                      if do_it==1
+                         
                         if ID_edge(jj)==2
                         dH_b_x(jj-1)=-(x_0_r+radius-r_b(1,jj-1))/dtrr*gradnorm;
                         r_b(1,jj-1)=x_0_r+radius;
@@ -257,18 +226,25 @@ function [points,cells] = PlasticGrowthH2D_line_jump(K,gamma,g,m,alpha,mu)
                         %r_b(1,jj+1)=x_0_r+radius;
                         ID_edge(jj+1)=2.25;
                         
+                        ll_b(jj-1)=ll_b_n_i;
+                        ll_b(jj)=ll_b_e_i;
                         end
                         if ID_edge(jj)==1.75
                         dH_b_x(jj-1)=-(x_0_r+radius-r_b(1,jj-1))/dtrr*gradnorm;
                         r_b(1,jj-1)=x_0_r+radius;
                         ID_edge(jj-1)=1.75;
-                        ID_initial(jj-1)=2;                               
+                        ID_initial(jj-1)=2;
+                        
+                        ll_b(jj-1)=ll_b_n_i;
+                        
                         end
                         if ID_edge(jj)==2.25                    
                         dH_b_x(jj+1)=-(x_0_r+radius-r_b(1,jj+1))/dtrr*gradnorm;
                         %r_b(1,jj+1)=x_0_r+radius;
                         ID_edge(jj+1)=2.25;
-                                                    
+                        
+                        
+                        ll_b(jj)=ll_b_e_i;
                         end
                     else
                     dH_l(1,jj)=0;
@@ -298,15 +274,21 @@ function [points,cells] = PlasticGrowthH2D_line_jump(K,gamma,g,m,alpha,mu)
             end
             
             if ID_initial(jj)==1
+%                 if L(jj)==0
+%                     jj=jj
+%                 a=dH_l(jj)/gradnorm
+%                 end
                  if L(jj)==0 && dH_l(jj)/gradnorm<0
+                    %dH_l(1,jj)=-0.2*gradnorm/dtrr; 
                     L_virt=L(jj)+dtrr*(-dH_l(1,jj))/gradnorm;
-                    if L_virt<0
-                        L_virt=0;
-                    end
+%                     if L_virt<0
+%                         L_virt=0;
+%                     end
                     virtual(1)=x_0_l-radius*cos(L_virt/radius);
                     virtual(2)=radius*sin(L_virt/radius);    
                     do_it=jump(r_a,r_b,ll_s,ll_b,k,ID_edge,jj,virtual,dtrr,mu,dH_l./gradnorm,L);
                      if do_it==1
+                         
                         if ID_edge(jj)==1
                         dH_b_x(jj-1)=-(x_0_l-radius-r_b(1,jj-1))/dtrr*gradnorm;
                         r_b(1,jj-1)=x_0_l-radius;
@@ -317,18 +299,26 @@ function [points,cells] = PlasticGrowthH2D_line_jump(K,gamma,g,m,alpha,mu)
                         %r_b(1,jj+1)=x_0_l-radius;
                         ID_edge(jj+1)=1.25;
                         
+                        ll_b(jj-1)=ll_b_e_i;
+                        ll_b(jj)=ll_b_n_i;
+                        
                         end
                         if ID_edge(jj)==0.75
                         dH_b_x(jj-1)=-(x_0_l-radius-r_b(1,jj-1))/dtrr*gradnorm;
                         r_b(1,jj-1)=x_0_l-radius;
                         ID_edge(jj-1)=0.75;
-                        ID_initial(jj-1)=1;                               
+                        ID_initial(jj-1)=1;
+                        
+                        ll_b(jj-1)=ll_b_e_i;
+                        
                         end
                         if ID_edge(jj)==1.25                    
                         dH_b_x(jj+1)=-(x_0_l-radius-r_b(1,jj+1))/dtrr*gradnorm;
                         %r_b(1,jj+1)=x_0_l-radius;
                         ID_edge(jj+1)=1.25;
-                                              
+                        
+                        
+                        ll_b(jj)=ll_b_n_i;
                         end
                     else
                     dH_l(1,jj)=0;
@@ -403,7 +393,15 @@ function [points,cells] = PlasticGrowthH2D_line_jump(K,gamma,g,m,alpha,mu)
 
             dArea=abs(A_0-Area)./A_0*100;
         end
-            
+        struct_g(i).r_b=r_b;
+        struct_g(i).side_z=side_z;
+        struct_g(i).front_z=front_z;
+        struct_g(i).back_z=back_z;
+        struct_g(i).area1_z=area1_z;
+        struct_g(i).area2_z=area2_z;
+        %struct_g(i).miosin_z=miosin_z;
+        
+          
         if mod(i,Plots) == 0
            
             points(i/Plots+1).q_a = r_a ;
@@ -443,7 +441,8 @@ function [points,cells] = PlasticGrowthH2D_line_jump(K,gamma,g,m,alpha,mu)
     end
     %figure(4)
     %semilogy(cells)
-   
+   cells_on_i=length(find(L~=0))+2;
+   interface_length=max(L_a);
 end
 %         if i~=1
 %             
@@ -479,17 +478,17 @@ vector_side=[r_a(1,jj-1)-r_b(1,jj-1), r_a(2,jj-1)-r_b(2,jj-1), 0];
 vector_basal=[r_b(1,jj-1)-r_b(1,jj-2), r_b(2,jj-1)-r_b(2,jj-2), 0];
 vector_edge=[virtual(1)-r_b(1,jj-1), virtual(2)-r_b(2,jj-1), 0];
 
-basal1=k(2)/2*(norm(vector_basal)-ll_b(jj-1))^2;%+k(2)/2*(sqrt((r_b(1,N)-r_b(1,N-1))^2+(r_b(2,N)-r_b(2,N-1))^2)-ll_b(N-1))^2;
+basal1=k(2)/2*(norm(vector_basal)-ll_b(jj-2))^2;%+k(2)/2*(sqrt((r_b(1,N)-r_b(1,N-1))^2+(r_b(2,N)-r_b(2,N-1))^2)-ll_b(N-1))^2;
 side1=k(3)/2*(norm(vector_side)-ll_s(jj-1))^2;
-edge1=k(2)/2*(norm(vector_edge-ll_b(jj)))^2;
+edge1=k(2)/2*(norm(vector_edge)-ll_b(jj-1))^2;
 
 vector_side=[r_a(1,jj+1)-r_b(1,jj+1), r_a(2,jj+1)-r_b(2,jj+1), 0];
 vector_basal=[r_b(1,jj+1)-r_b(1,jj+2), r_b(2,jj+1)-r_b(2,jj+2), 0];
 vector_edge=[virtual(1)-r_b(1,jj+1), virtual(2)-r_b(2,jj+1), 0];
 
-basal2=k(2)/2*(norm(vector_basal)-ll_b(jj-1))^2;%+k(2)/2*(sqrt((r_b(1,N)-r_b(1,N-1))^2+(r_b(2,N)-r_b(2,N-1))^2)-ll_b(N-1))^2;
-side2=k(3)/2*(norm(vector_side)-ll_s(jj-1))^2;
-edge2=k(2)/2*(norm(vector_edge-ll_b(jj)))^2;
+basal2=k(2)/2*(norm(vector_basal)-ll_b(jj+1))^2;%+k(2)/2*(sqrt((r_b(1,N)-r_b(1,N-1))^2+(r_b(2,N)-r_b(2,N-1))^2)-ll_b(N-1))^2;
+side2=k(3)/2*(norm(vector_side)-ll_s(jj+1))^2;
+edge2=k(2)/2*(norm(vector_edge)-ll_b(jj))^2;
 
 spring=basal1+side1+edge1+basal2+side2+edge2;  
 end
@@ -499,9 +498,9 @@ vector_side=[r_a(1,jj-1)-r_b(1,jj-1), r_a(2,jj-1)-r_b(2,jj-1), 0];
 vector_basal=[r_b(1,jj-1)-r_b(1,jj-2), r_b(2,jj-1)-r_b(2,jj-2), 0];
 vector_edge=[virtual(1)-r_b(1,jj-1), virtual(2)-r_b(2,jj-1), 0];
 
-basal1=k(2)/2*(norm(vector_basal)-ll_b(jj-1))^2;%+k(2)/2*(sqrt((r_b(1,N)-r_b(1,N-1))^2+(r_b(2,N)-r_b(2,N-1))^2)-ll_b(N-1))^2;
+basal1=k(2)/2*(norm(vector_basal)-ll_b(jj-2))^2;%+k(2)/2*(sqrt((r_b(1,N)-r_b(1,N-1))^2+(r_b(2,N)-r_b(2,N-1))^2)-ll_b(N-1))^2;
 side1=k(3)/2*(norm(vector_side)-ll_s(jj-1))^2;
-edge1=k(2)/2*(norm(vector_edge-ll_b(jj)))^2;   
+edge1=k(2)/2*(norm(vector_edge)-ll_b(jj-1))^2;   
       
 spring=basal1+side1+edge1;
 end
@@ -512,9 +511,9 @@ vector_side=[r_a(1,jj+1)-r_b(1,jj+1), r_a(2,jj+1)-r_b(2,jj+1), 0];
 vector_basal=[r_b(1,jj+1)-r_b(1,jj+2), r_b(2,jj+1)-r_b(2,jj+2), 0];
 vector_edge=[virtual(1)-r_b(1,jj+1), virtual(2)-r_b(2,jj+1), 0];
 
-basal2=k(2)/2*(norm(vector_basal)-ll_b(jj-1))^2;%+k(2)/2*(sqrt((r_b(1,N)-r_b(1,N-1))^2+(r_b(2,N)-r_b(2,N-1))^2)-ll_b(N-1))^2;
-side2=k(3)/2*(norm(vector_side)-ll_s(jj-1))^2;
-edge2=k(2)/2*(norm(vector_edge-ll_b(jj)))^2;
+basal2=k(2)/2*(norm(vector_basal)-ll_b(jj+1))^2;%+k(2)/2*(sqrt((r_b(1,N)-r_b(1,N-1))^2+(r_b(2,N)-r_b(2,N-1))^2)-ll_b(N-1))^2;
+side2=k(3)/2*(norm(vector_side)-ll_s(jj+1))^2;
+edge2=k(2)/2*(norm(vector_edge)-ll_b(jj))^2;
 
 spring=basal2+side2+edge2;     
     
@@ -527,6 +526,53 @@ do_it=1;
 else
 do_it=0;  
 end
+end
+
+function [delta_L_l, delta_L_r, ID_min_l_e, ID_min_l_n, ID_min_r_e,ID_min_r_n]=interface_length_func(L,ID_initial)
+maxval=max(L(ID_initial==1)); %left boundary lengths
+        ID_max_l=intersect(find(L==maxval),find(ID_initial==1));%left boundary max
+        
+        maxval=max(L(ID_initial==2)); %right boundary lengths
+        ID_max_r=intersect(find(L==maxval),find(ID_initial==2));%right boundary max
+        
+       
+        minval=min(L(intersect(1:ID_max_l-1,find(ID_initial==1))));
+        if isempty(minval)
+            ID_min_l_e=length(L);
+        else
+        ID_min_l_e=intersect(find(L==minval),find(ID_initial==1));
+        end
+        
+        
+        minval=min(L(intersect(ID_max_l+1:ID_max_r-1,find(ID_initial==1))));
+        if isempty(minval)
+            ID_min_l_n=length(L);
+        else
+        ID_min_l_n=intersect(find(L==minval),find(ID_initial==1));
+        end
+        
+        
+        minval=min(L(intersect(ID_max_r+1:length(L),find(ID_initial==2))));
+        if isempty(minval)
+            ID_min_r_e=length(L);
+            
+        else
+        ID_min_r_e=intersect(find(L==minval),find(ID_initial==2));
+        
+        end
+        
+        
+        minval=min(L(intersect(ID_max_l+1:ID_max_r-1,find(ID_initial==2))));
+        if isempty(minval)
+            ID_min_r_n=length(L);
+        else
+        ID_min_r_n=intersect(find(L==minval),find(ID_initial==2));
+        end
+        
+        
+        delta_L_l=-L(ID_min_l_e(1))+L(ID_min_l_n(1));
+        delta_L_r=-L(ID_min_r_e(1))+L(ID_min_r_n(1));
+        
 end
 function value= dH_extra(x,y,R,x_0,delta_L,dim,jj,ID_e,ID_n,alpha)
 value=0;
@@ -692,7 +738,7 @@ H(jj)=apical+basal+side+attachment+area1+miosin;
 
 end
 %extra=alpha/2*delta_L_l^2+alpha/2*delta_L_r^2;
-extra=(length(find(ID_initial>0))-1)*mu;
+extra=-(length(find(ID_initial>0))-1)*mu;
 H=sum(H)+extra;
 end
 
@@ -746,7 +792,7 @@ end
 % dH_b=dH_b+bottom1+bottom2;
 % end
 
-function dH_a=dH_a_func(ll_a,ll_s,r_a,r_b,kappa,jj,dim,k,g,delta_x,step,A_0,Area)
+function [dH_a, side, front, back, area1, area2, miosin]=dH_a_func(ll_a,ll_s,r_a,r_b,kappa,jj,dim,k,g,delta_x,step,A_0,Area)
 if dim ==1
     notdim=2;
 else
@@ -790,7 +836,7 @@ end
 dH_a=side+front+back+area1+area2+miosin;
 end
 
-function dH_b=dH_b_func(ll_b,ll_s,r_a,r_b,kappa,jj,rr,dim,k,gamma,lambda, g, delta_x,A_0,Area)
+function [dH_b,side, front, back, area1, area2]=dH_b_func(ll_b,ll_s,r_a,r_b,kappa,jj,rr,dim,k,gamma,lambda, g, delta_x,A_0,Area)
 if dim ==1
     notdim=2;
 else
@@ -826,8 +872,7 @@ if jj==length(r_a)
 end
 
 
-bottom1=0;
-bottom2=0;
+
 if dim==2 && jj==1
     bottom1=gamma/lambda*exp(-1/2*abs(r_b(2,jj)+r_b(2,jj+1))/lambda);
 end
@@ -845,7 +890,8 @@ if dim==2 && jj~=1 && jj~=length(r_a)
     %bottom1=-kappa/2*(rr(jj)-1/2*(r_b(1,jj)+r_b(1,jj+1)));
     %bottom2=-kappa/2*(rr(jj-1)-1/2*(r_b(1,jj)+r_b(1,jj-1)));
 end
-
+bottom1=0;
+bottom2=0;
 dH_b=side+front+back+bottom1+bottom2+area1+area2;
 
 
@@ -1017,7 +1063,7 @@ function [dhs_b] = dhfunc_b(r,kappa) % insert edges and attachement strength
     
 end
 
-function [r_a,r_b,rr,ll_a,ll_b,ll_s,ID,A_0,step,ID_initial,ID_edge] = ChainModelInitial(N, sigma,lmax,m) % Number of cells and noise in initial condition
+function [r_a,r_b,rr,ll_a,ll_b,ll_s,ID,A_0,step,ID_initial,ID_edge] = ChainModelInitial(N, sigma,lmax,m,ll_b_e_g,ll_b_n_g) % Number of cells and noise in initial condition
     
     rng(0);
     r_a(1,:) = ((1+30:1:N+30)'-(N)/2);%  + rand(N,1)*sigma;% define cell center, initially at the 0.5, for example one cell would have center 0.5, then add noise
@@ -1044,8 +1090,8 @@ function [r_a,r_b,rr,ll_a,ll_b,ll_s,ID,A_0,step,ID_initial,ID_edge] = ChainModel
     ll_a=1*ones(N-1,1); %ll_a = unifrnd(1,lmax,N-1,1)*4; %random numbers from distribution, to get size of cells %ecad top
     ll_a(length(ll_a)/4+1:length(ll_a)*3/4)=1*ones((N-1)/2,1);%ll_a(length(ll_a)/4+1:length(ll_a)*3/4)=unifrnd(1,lmax,(N-1)/2,1); %ncad top 0.1 0.5
     
-    ll_b=1*ones(N-1,1);%ll_b = unifrnd(1,lmax,N-1,1); %random numbers from distribution, to get size of cells %ecad bottom
-    ll_b(length(ll_b)/4+1:length(ll_b)*3/4)=1*ones((N-1)/2,1);%ll_b(length(ll_b)/4+1:length(ll_b)*3/4)=unifrnd(1,lmax,(N-1)/2,1); %ncad bottom
+    ll_b=ll_b_e_g*ones(N-1,1);%ll_b = unifrnd(1,lmax,N-1,1); %random numbers from distribution, to get size of cells %ecad bottom
+    ll_b(length(ll_b)/4+1:length(ll_b)*3/4)=ll_b_n_g*ones((N-1)/2,1);%ll_b(length(ll_b)/4+1:length(ll_b)*3/4)=unifrnd(1,lmax,(N-1)/2,1); %ncad bottom
     
     ll_s=1*ones(N,1);%ll_b = unifrnd(1,lmax,N-1,1); %random numbers from distribution, to get size of cells %ecad bottom
     ll_s((length(ll_s)-1)/4+1:(length(ll_s)-1)*3/4+1)=1*ones((N-1)/2+1,1);
