@@ -18,12 +18,14 @@ L_0_b=[1 length_i 1 1];
 K=[1 1 1]*1;
 gamma=0.01;
 g=20;
+NTimes=4800000;
+Plots=1000;
 %m=2000;
 alpha=1;
 nneural=nneural;
 name=sprintf('m%g_b%g_k%g_mu%g_Lg%d_Li1_neural%g_reflec_scan_radius',m,g,K(3),mu,L_0_b(1),nneural);
 name=erase(name,".");
-[points,cells,struct_g,cells_on_i,interface_length,time1_complete,H_complete] = mechanical_simulation(K,gamma,g,m,alpha,mu,L_0_b,40+nneural,nneural);
+[points,cells,struct_g,cells_on_i,interface_length,time1_complete,H_complete] = mechanical_simulation(K,gamma,g,m,alpha,mu,L_0_b,40+nneural,nneural,NTimes,Plots);
 
 %
 % paramets when to begin plot, how many points in time to plot and what

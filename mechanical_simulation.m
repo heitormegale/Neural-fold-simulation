@@ -1,4 +1,4 @@
-function [points,cells,struct_g,cells_on_i,interface_length,time1_complete,H] = mechanical_simulation(K,gamma,g,m,alpha,mu,L_0_b,Ncell,Nnumber)
+function [points,cells,struct_g,cells_on_i,interface_length,time1_complete,H] = mechanical_simulation(K,gamma,g,m,alpha,mu,L_0_b,Ncell,Nnumber,NTimes,Plots)
 
     
     
@@ -14,8 +14,8 @@ function [points,cells,struct_g,cells_on_i,interface_length,time1_complete,H] = 
     % parameters:
 
        
-        NTimes = 4800000; % Number of simulation runs;
-        Plots  = 1000; % When to plot distribution
+        NTimes = NTimes; % Number of simulation runs;
+        Plots  = Plots; % When to plot distribution
         
         Enumber=Ncell-Nnumber;
         Nnumber=Nnumber;
