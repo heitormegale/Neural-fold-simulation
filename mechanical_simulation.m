@@ -1,3 +1,24 @@
+%---------------------------------------------------------------------
+% license
+%---------------------------------------------------------------------
+%
+% Copyright 2021 Heitor C. Megale and Eyal Kazrbrun
+%
+% This file is a free software: you can redistribute it and/or modify
+% it under the terms of the GNU General Public License as published by
+% the Free Software Foundation, either version 3 of the License, or
+% (at your option) any later version.
+%
+% This file is distributed in the hope that it will be useful,
+% but WITHOUT ANY WARRANTY; without even the implied warranty of
+% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+% GNU General Public License for more details.
+%
+% A copy of the GNU General Public License is here: <http://www.gnu.org/licenses/>.
+%
+%---------------------------------------------------------------------
+
+
 function [points,cells,struct_g,cells_on_i,interface_length,time1_complete,H] = mechanical_simulation(K,gamma,g,m,alpha,mu,L_0_b,Ncell,Nnumber,NTimes,Plots)
 
     
